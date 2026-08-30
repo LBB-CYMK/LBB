@@ -1,0 +1,33 @@
+{
+  "raw_samples": 12000,
+  "processed_samples": 12000,
+  "outlier_removed": {
+    "wear_value": 322,
+    "temperature": 281
+  },
+  "outlier_total": 405,
+  "normalize_params": {
+    "wear_clean": {
+      "min": 0.02102,
+      "max": 1.013
+    },
+    "temp_clean": {
+      "min": 31.029,
+      "max": 64.554
+    }
+  },
+  "window_size": 20,
+  "rul_cap": 125,
+  "train_units": 24,
+  "test_units": 6,
+  "X_train_shape": [
+    9057,
+    20,
+    2
+  ],
+  "X_test_shape": [
+    2343,
+    20,
+    2
+  ]
+}
