@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设备磨损趋势预测与故障预警系统</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel2: #273449;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --crit: #f87171;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      padding: 24px;
+    }
+    header { margin-bottom: 20px; }
+    header h1 { font-size: 22px; font-weight: 600; }
+    header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; margin-bottom: 20px;
+    }
+    .card h2 { font-size: 15px; margin-bottom: 12px; color: var(--accent); }
+    .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    select, button {
+      background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 14px; font-size: 14px; cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: #082f49; border: none; font-weight: 600; }
+    button.primary:hover { filter: brightness(1.1); }
+    #chart { width: 100%; height: 360px; }
+    .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+    .stat { background: var(--panel2); border-radius: 10px; padding: 14px; text-align: center; }
+    .stat .label { color: var(--muted); font-size: 12px; }
+    .stat .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .badge.normal { background: #064e3b; color: var(--ok); }
+    .badge.warning { background: #78350f; color: var(--warn); }
+    .badge.critical { background: #7f1d1d; color: var(--crit); }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .msg { margin-top: 12px; font-size: 13px; padding: 10px; border-radius: 8px; background: var(--panel2); }
+    .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>设备磨损趋势预测与故障预警系统</h1>
+    <p>基于深度学习的 RNN 时序预测 · 剩余寿命(RUL)估算 · 异常预警</p>
+  </header>
+
+  <div class="layout">
+    <div>
+      <div class="card">
+        <h2>设备选择与预测</h2>
+        <div class="toolbar">
+          <select id="deviceSelect" onchange="onDeviceChange()"></select>
+          <button class="primary" onclick="onPredict()">运行预测</button>
+          <button onclick="loadAlerts()">刷新预警</button>
+        </div>
+        <div id="result" class="result-grid" style="display:none;">
+          <div class="stat"><div class="label">下一周期磨损量</div><div class="value" id="predWear">—</div></div>
+          <div class="stat"><div class="label">剩余寿命 RUL</div><div class="value" id="rul">—</div></div>
+          <div class="stat"><div class="label">预警状态</div><div class="value"><span id="levelBadge" class="badge normal">—</span></div></div>
+        </div>
+        <div id="message" class="msg" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <h2>磨损趋势曲线</h2>
+        <div id="chart"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>预警事件</h2>
+        <div id="alerts"><div class="empty">暂无预警记录</div></div>
+      </div>
+      <div class="card">
+        <h2>最近预测记录</h2>
+        <div id="predictions"><div class="empty">暂无预测记录</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chart = echarts.init(document.getElementById('chart'));
+    let currentUnit = null;
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, opts);
+      if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+      return res.json();
+    }
+
+    async function loadDevices() {
+      const devices = await api('/api/devices');
+      const sel = document.getElementById('deviceSelect');
+      sel.innerHTML = '';
+      devices.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.unit_id;
+        opt.textContent = `设备 ${d.unit_id}（失效周期 ${d.failure_cycle}）`;
+        sel.appendChild(opt);
+      });
+      currentUnit = devices[0]?.unit_id ?? null;
+      if (currentUnit) onDeviceChange();
+    }
+
+    async function onDeviceChange() {
+      currentUnit = parseInt(document.getElementById('deviceSelect').value);
+      await loadHistory(currentUnit);
+    }
+
+    async function loadHistory(unitId) {
+      const d = await api(`/api/devices/${unitId}/history`);
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['磨损量', '失效阈值'], textStyle: { color: '#94a3b8' } },
+        grid: { left: 50, right: 20, top: 30, bottom: 40 },
+        xAxis: { type: 'category', name: '运行周期', data: d.cycles,
+                 axisLine: { lineStyle: { color: '#475569' } } },
+        yAxis: { type: 'value', name: '磨损量 (mm)', splitLine: { lineStyle: { color: '#334155' } } },
+        series: [
+          { name: '磨损量', type: 'line', data: d.wear, showSymbol: false,
+            lineStyle: { color: '#38bdf8', width: 2 }, areaStyle: { opacity: 0.08 } },
+          { name: '失效阈值', type: 'line', data: [], markLine: {
+              symbol: 'none', lineStyle: { color: '#f87171', type: 'dashed' },
+              label: { color: '#f87171' },
+              data: [{ yAxis: 1.0, name: '1.0mm' }]
+            } }
+        ]
+      });
+    }
+
+    async function onPredict() {
+      if (!currentUnit) return;
+      const r = await api('/api/predict', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit_id: currentUnit })
+      });
+      document.getElementById('result').style.display = 'grid';
+      document.getElementById('predWear').textContent = r.pred_wear_mm.toFixed(4) + ' mm';
+      document.getElementById('rul').textContent = r.rul + ' 周期';
+      const badge = document.getElementById('levelBadge');
+      badge.className = 'badge ' + r.level;
+      badge.textContent = { normal: '正常', warning: '预警', critical: '严重预警' }[r.level] || r.level;
+      const msg = document.getElementById('message');
+      msg.style.display = 'block';
+      msg.textContent = '提示：' + r.message + '（失效阈值 ' + r.threshold_mm + 'mm，失效周期 ' + r.failure_cycle + '）';
+      loadPredictions(); loadAlerts();
+    }
+
+    function renderTable(rows, cols, containerId) {
+      const el = document.getElementById(containerId);
+      if (!rows.length) { el.innerHTML = '<div class="empty">暂无记录</div>'; return; }
+      let html = '<table><tr>' + cols.map(c => '<th>' + c.label + '</th>').join('') + '</tr>';
+      rows.forEach(r => {
+        html += '<tr>' + cols.map(c => '<td>' + (c.render ? c.render(r) : r[c.key]) + '</td>').join('') + '</tr>';
+      });
+      html += '</table>';
+      el.innerHTML = html;
+    }
+
+    async function loadPredictions() {
+      const rows = await api('/api/predictions');
+      renderTable(rows, [
+        { label: '设备', key: 'unit_id' },
+        { label: '预测磨损', key: 'pred_wear_mm', render: r => r.pred_wear_mm.toFixed(4) },
+        { label: 'RUL', key: 'rul' },
+        { label: '状态', key: 'alert_level', render: r =>
+            '<span class="badge ' + r.alert_level + '">' +
+            ({normal:'正常',warning:'预警',critical:'严重预警'}[r.alert_level] || r.alert_level) + '</span>' }
+      ], 'predictions');
+    }
+
+    async function loadAlerts() {
+      const rows = await api('/api/alerts');
+      renderTable(rows, [
+        { label: '设备', key: 'unit_id' },
+        { label: '等级', key: 'level', render: r =>
+            '<span class="badge ' + r.level + '">' +
+            ({warning:'预警',critical:'严重预警'}[r.level] || r.level) + '</span>' },
+        { label: '信息', key: 'message' },
+        { label: '时间', key: 'created_at' }
+      ], 'alerts');
+    }
+
+    loadDevices();
+  </script>
+</body>
+</html>

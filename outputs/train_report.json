@@ -1,0 +1,35 @@
+{
+  "search_grid": [
+    {
+      "hidden_size": 16,
+      "lr": 0.001
+    },
+    {
+      "hidden_size": 32,
+      "lr": 0.001
+    },
+    {
+      "hidden_size": 32,
+      "lr": 0.003
+    },
+    {
+      "hidden_size": 64,
+      "lr": 0.003
+    }
+  ],
+  "best_config": {
+    "hidden_size": 32,
+    "lr": 0.001
+  },
+  "best_val_mse": 2.417468088727522e-05,
+  "final_test_metrics": {
+    "mse": 2.664538442331832e-05,
+    "rmse": 0.005161916739285739,
+    "mae": 0.004071607254445553
+  },
+  "epochs": 60,
+  "train_samples": 9057,
+  "test_samples": 2343,
+  "window_size": 20,
+  "input_features": 2
+}

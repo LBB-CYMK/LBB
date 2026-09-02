@@ -2,18 +2,36 @@
 
 > 课程设计项目 —— 以设备运行时序数据为研究对象，通过数据清洗、归一化与深度时序模型（RNN），
 > 实现设备磨损量趋势预测与剩余使用寿命（RUL）估算，自动识别异常磨损并提前输出故障预警。
+> 系统采用完整 B/S 架构：前端 UI + 后端 API + SQLite 数据库 + 算法模块。
 
 ## 一、项目简介
 
 - **选题**：基于深度学习的设备磨损趋势预测与故障预警系统
-- **技术栈**：Python + Numpy / Pandas（数据处理）+ PyTorch（RNN）+ Matplotlib（可视化）
+- **技术栈**：Python + Numpy / Pandas（数据处理）+ PyTorch（RNN）+ FastAPI（后端）+ SQLite（数据库）+ ECharts（前端）+ Matplotlib（可视化）
 - **涉及课程专题**：数据预处理与异常值识别、循环神经网络时序预测（RNN/ReLU）、智能搜索与状态空间搜索、版本控制与工程部署
 - **整体流程**：原始数据 → 异常值检测 → 归一化 → 时序样本构建 → RNN 训练 → 磨损预测 & RUL 计算 → 故障预警
 
-## 二、目录结构
+## 二、系统架构
 
 ```
-LB/
+浏览器前端 (web/index.html + ECharts)
+        │  HTTP / REST API
+        ▼
+FastAPI 后端 (src/app.py)  ── 算法服务层 (src/predict.py) ── RNN 模型 (src/model.py)
+        │ 读写
+        ▼
+SQLite 数据库 (src/database.py → data/app.db)
+```
+
+- **算法模块**：数据预处理（去趋势+IQR）、RNN 时序预测、超参数网格搜索（智能搜索）、滚动前向模拟估算 RUL（状态空间搜索）
+- **后端服务**：FastAPI 提供 REST API，承载设备查询、预测、预警等业务逻辑
+- **数据库**：SQLite 存储设备档案、预测记录、预警事件
+- **前端 UI**：单页应用，走通「选设备 → 看曲线 → 预测 → 查看 RUL/预警」完整流程
+
+## 三、目录结构
+
+```
+LBB/
 ├── data/                         # 数据目录
 │   ├── raw/                      # 原始数据（含异常值）
 │   │   ├── wear_raw.csv          #   原始磨损数据
@@ -23,19 +41,40 @@ LB/
 │   │   ├── sequences.npz         #   滑动窗口时序样本（训练/测试）
 │   │   ├── preprocess_report.json#   预处理统计报告
 │   │   └── preprocess_visualization.png  # 异常值剔除前后对比
-│   └── 数据说明.md               # 数据来源与预处理详细说明
+│   ├── app.db                    #   SQLite 数据库（运行时生成）
+│   └── 数据说明.md               #   数据来源与预处理详细说明
 ├── src/                          # 源码
-│   ├── generate_data.py          # 数据生成脚本
-│   └── preprocess.py             # 数据预处理脚本
+│   ├── generate_data.py          # 数据生成脚本（阶段1）
+│   ├── preprocess.py             # 数据预处理脚本（阶段1）
+│   ├── model.py                  # RNN 模型定义（阶段2）
+│   ├── train.py                  # 模型训练 + 超参搜索（阶段2）
+│   ├── predict.py                # 预测/RUL/预警服务层（阶段3）
+│   ├── database.py               # SQLite 数据层（阶段4）
+│   └── app.py                    # FastAPI 后端（阶段4）
+├── web/                          # 前端
+│   └── index.html                # 单页前端 UI（阶段4）
+├── models/                       # 训练产物
+│   └── wear_rnn.pt               # 模型权重
+├── outputs/                      # 训练曲线与演示图
+│   ├── train_loss.png            #   超参搜索验证损失曲线
+│   ├── train_report.json         #   训练指标报告
+│   └── demo_prediction.png       #   预测演示图
+├── tests/                        # 自动化测试（阶段4）
+│   ├── test_model.py
+│   ├── test_predict.py
+│   ├── test_database.py
+│   └── test_api.py
 ├── prompt/                       # AI 工具提示词追溯记录
-│   └── 阶段1_数据准备与预处理_提示词记录.json
+│   ├── 阶段1_数据准备与预处理_提示词记录.json
+│   └── 阶段2-4_模型训练与系统集成_提示词记录.json
+├── 需求规格说明书.md
 ├── 学习笔记.md                   # 课程设计学习笔记
 ├── 方案设计.md                   # 项目方案设计
 ├── 选题说明.md                   # 项目选题说明
 └── README.md
 ```
 
-## 三、数据来源
+## 四、数据来源
 
 本阶段数据采用**自建数据集**（指数磨损模拟数据），数据量小（约 1.2 万条），
 **直接提交到仓库 `/data` 目录**下，无需上传 HuggingFace / ModelScope。
@@ -57,7 +96,7 @@ w(t) = w0 + A · (exp(B·t) − 1) + ε
 
 > 详细数据来源说明见 [data/数据说明.md](data/数据说明.md)。
 
-## 四、数据预处理
+## 五、数据预处理
 
 由 [src/preprocess.py](src/preprocess.py) 完成，流程如下：
 
@@ -75,28 +114,52 @@ w(t) = w0 + A · (exp(B·t) − 1) + ε
 
 预处理后时序样本：训练集 `(9057, 20, 2)`、测试集 `(2343, 20, 2)`。
 
-## 五、复现方法
+## 六、模型与预测
+
+### 模型（[src/model.py](src/model.py)）
+`WearRNN`：RNN 层（ReLU 激活，batch_first）→ 取最后时间步隐藏状态 → 全连接回归头，输出下一周期磨损量。
+
+### 训练（[src/train.py](src/train.py)）
+超参数网格搜索（`hidden_size × lr`，对应「智能搜索」专题）择优，最优配置在完整训练集上重训。
+独立测试集指标：**MSE≈2.7e-5、RMSE≈0.0052、MAE≈0.0041**。
+
+### 预测 / RUL / 预警（[src/predict.py](src/predict.py)）
+- **磨损预测**：输入近 20 周期特征，单步前向预测下一周期磨损量。
+- **RUL 估算**：滚动前向模拟（状态空间搜索）——反复预测并回填窗口，直到磨损越过失效阈值，所得周期数即为剩余寿命。
+- **故障预警**：基于预测磨损量与 RUL 判定 normal / warning / critical 三级状态。
+
+## 七、复现方法
 
 ```bash
 # 安装依赖
-pip install numpy pandas matplotlib
+pip install numpy pandas matplotlib torch fastapi uvicorn pytest
 
 # 1. 生成原始数据
 python src/generate_data.py
 
 # 2. 数据预处理
 python src/preprocess.py
+
+# 3. 训练 RNN 模型（含超参数搜索）
+python src/train.py
+
+# 4. 运行自动化测试
+python -m pytest
+
+# 5. 启动系统，浏览器打开 http://127.0.0.1:8000
+uvicorn src.app:app --reload
 ```
 
-## 六、AI 工具提示词追溯
+## 八、AI 工具提示词追溯
 
 与 AI 工具的交流记录（JSON）保存在 [prompt/](prompt/) 目录下，每个阶段同步更新，
-用于课程考核的 AI 工具使用留痕。当前阶段记录：
-[阶段1_数据准备与预处理_提示词记录.json](prompt/阶段1_数据准备与预处理_提示词记录.json)
+用于课程考核的 AI 工具使用留痕。记录文件：
+- [阶段1_数据准备与预处理_提示词记录.json](prompt/阶段1_数据准备与预处理_提示词记录.json)
+- [阶段2-4_模型训练与系统集成_提示词记录.json](prompt/阶段2-4_模型训练与系统集成_提示词记录.json)
 
-## 七、阶段进度
+## 九、阶段进度
 
 - [x] 阶段 1：数据来源准备 + 数据预处理 + 提示词追溯
-- [ ] 阶段 2：搭建 RNN 模型、完成模型训练
-- [ ] 阶段 3：实现预测功能、可视化功能开发
-- [ ] 阶段 4：系统调试、整体整合、最终答辩材料整理
+- [x] 阶段 2：搭建 RNN 模型、完成模型训练（含超参数搜索）
+- [x] 阶段 3：实现预测功能、可视化功能开发（预测/RUL/预警）
+- [x] 阶段 4：系统调试、整体整合（前端 + 后端 + 数据库 + 自动化测试 + 需求规格说明书）

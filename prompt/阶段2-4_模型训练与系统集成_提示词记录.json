@@ -1,0 +1,37 @@
+{
+  "project": "基于深度学习的设备磨损趋势预测与故障预警系统",
+  "stage": "阶段2-4：RNN 模型训练、预测/预警、系统集成",
+  "ai_tool": "Claude Code (CLI)",
+  "model": "deepseek-v4-pro",
+  "date": "2026-08-31",
+  "description": "本文件记录阶段2-4与 AI 工具的交流内容（提示词追溯），用于课程考核的 AI 工具使用留痕。",
+  "records": [
+    {
+      "id": 1,
+      "date": "2026-08-31",
+      "type": "需求分析",
+      "user_prompt": "分析该项目下所有要求",
+      "purpose": "通读任务书与项目文档，梳理课程硬性要求与当前差距。",
+      "ai_completion": "提取任务书 PDF 全文，识别出核心缺口：架构不完整（缺前端/后端/数据库/测试）、需求规格说明书缺失、智能搜索方向需真实落地等，输出分层需求分析。",
+      "notes": "任务书 PDF 受密码保护，改用 pdftotext/fitz 提取文本。"
+    },
+    {
+      "id": 2,
+      "date": "2026-08-31",
+      "type": "实现计划与执行",
+      "user_prompt": "列出阶段2-4的具体实现计划并执行",
+      "purpose": "将纯脚本升级为任务书要求的完整 B/S 可运行 demo。",
+      "ai_completion": "确定技术栈（PyTorch RNN + FastAPI + SQLite + 单页前端 + pytest）；编写 src/model.py、train.py、predict.py、database.py、app.py、web/index.html、tests/ 与需求规格说明书.md；训练模型（测试集 MAE≈0.004）；运行 pytest 14 用例全通过；uvicorn 冒烟验证通过。",
+      "notes": "智能搜索方向通过超参数网格搜索落地；RUL 通过滚动前向状态空间模拟实现。"
+    },
+    {
+      "id": 3,
+      "date": "2026-08-31",
+      "type": "环境与调试修正",
+      "user_prompt": "（AI 自查 pytest 运行报错后主动诊断并修正）",
+      "purpose": "修复测试运行中的 6 处失败。",
+      "ai_completion": "① pip 与 python 指向不同环境（pip→conda 3.10，python→3.9），改用 python -m pip 安装到正确环境；② FastAPI on_event 已弃用且 TestClient 未触发启动事件，改用 lifespan 并让测试用 with TestClient 包裹；③ 测试调用参数名 db 与函数形参 db_path 不一致，统一为 db_path。",
+      "notes": "体现 AI 辅助调试与人工复核：定位环境错配、生命周期语义与参数名不一致三类问题。"
+    }
+  ]
+}
