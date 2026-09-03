@@ -12,7 +12,7 @@ FastAPI 后端服务
 启动方式（在仓库根目录执行）：
     uvicorn src.app:app --reload
     # 或： cd src && uvicorn app:app --reload
-    浏览器访问 http://127.0.0.1:8000
+    浏览器访问 http://127.0.0.1:8001
 """
 
 import os

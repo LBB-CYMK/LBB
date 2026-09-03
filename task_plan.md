@@ -40,5 +40,5 @@ python src/generate_data.py      # 阶段1
 python src/preprocess.py         # 阶段1
 python src/train.py              # 阶段2
 python -m pytest tests/          # 阶段4 测试
-uvicorn src.app:app --reload     # 阶段4 启动，浏览器打开 http://127.0.0.1:8000
+uvicorn src.app:app --reload     # 阶段4 启动，浏览器打开 http://127.0.0.1:8001
 ```

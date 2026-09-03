@@ -146,7 +146,7 @@ python src/train.py
 # 4. 运行自动化测试
 python -m pytest
 
-# 5. 启动系统，浏览器打开 http://127.0.0.1:8000
+# 5. 启动系统，浏览器打开 http://127.0.0.1:8001
 uvicorn src.app:app --reload
 ```
 

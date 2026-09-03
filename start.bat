@@ -40,11 +40,11 @@ if not exist "%~dp0models\wear_rnn.pt" (
 )
 
 rem ---- 在新窗口启动后端服务，稍后自动打开浏览器 ----
-echo [信息] 正在启动后端服务 http://127.0.0.1:8000 ...
-start "WearPredict Server" "%PYEXE%" -m uvicorn src.app:app --host 127.0.0.1 --port 8000
+echo [信息] 正在启动后端服务 http://127.0.0.1:8001 ...
+start "WearPredict Server" "%PYEXE%" -m uvicorn src.app:app --host 127.0.0.1 --port 8001
 
 ping -n 4 127.0.0.1 >nul
-start "" http://127.0.0.1:8000
+start "" http://127.0.0.1:8001
 
 echo [信息] 已启动，关闭服务器窗口即可停止服务。
 endlocal
