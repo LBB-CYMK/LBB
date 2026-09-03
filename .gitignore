@@ -8,3 +8,10 @@ __pycache__/
 
 # 运行时生成的 SQLite 数据库（应用启动时自动重建）
 data/app.db
+
+# 本地虚拟环境（一键启动脚本使用的同目录解释器）
+.venv/
+venv/
+
+# Claude Code 本地项目状态
+.claude/
