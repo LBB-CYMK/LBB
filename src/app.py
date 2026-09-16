@@ -115,6 +115,8 @@ def do_predict(req: PredictRequest):
         "rul": rul,
         "level": level,
         "message": msg,
+        # 可执行检修建议：让前端能单独、醒目地呈现运维决策结论（业务闭环）
+        "advice": predict.get_maintenance_advice(level),
         "failure_cycle": device["failure_cycle"],
     }
 

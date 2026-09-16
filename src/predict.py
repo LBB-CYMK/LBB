@@ -45,6 +45,14 @@ MAX_RUL = 125           # RUL 截断上限，与标签一致
 WARN_RUL = 30           # 预警阈值：剩余寿命不足 30 周期
 CRIT_RUL = 15           # 严重预警阈值：剩余寿命不足 15 周期
 
+# 三级预警对应的可执行检修建议（业务闭环：预警等级 → 运维决策）
+# 让系统输出不止是「状态」，而是运维人员可直接执行的结论。
+MAINTENANCE_ADVICE = {
+    "normal": "建议按计划周期检修",
+    "warning": "建议提前准备备件，安排近期停机检查",
+    "critical": "建议立即安排停机检修，避免非计划停机",
+}
+
 
 def load_assets(device="cpu"):
     """加载模型、归一化参数，并计算归一化空间下的失效阈值。"""
@@ -94,11 +102,18 @@ def roll_forward_rul(model, window, threshold_norm, max_steps=MAX_RUL, device="c
     return max_steps
 
 
+def get_maintenance_advice(level):
+    """按预警等级返回可执行的检修建议（业务闭环输出）。"""
+    return MAINTENANCE_ADVICE.get(level, MAINTENANCE_ADVICE["normal"])
+
+
 def check_alert(pred_wear_norm, rul, threshold_norm,
                 warn_rul=WARN_RUL, crit_rul=CRIT_RUL):
     """故障预警判定，返回 (等级, 提示信息)。
 
     等级取值：normal / warning / critical。
+    提示信息由「判定依据」+「检修建议」拼接而成，
+    使系统输出落到运维人员可直接执行的检修决策上（业务闭环）。
     """
     level = "normal"
     msgs = []
@@ -111,7 +126,9 @@ def check_alert(pred_wear_norm, rul, threshold_norm,
     elif rul <= warn_rul:
         level = "warning"
         msgs.append(f"剩余寿命不足 {warn_rul} 周期")
-    return level, ("；".join(msgs) if msgs else "运行正常")
+
+    reason = "；".join(msgs) if msgs else "运行正常"
+    return level, f"{reason}；{get_maintenance_advice(level)}"
 
 
 def load_device(unit_id):

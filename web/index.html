@@ -163,7 +163,12 @@
       badge.textContent = { normal: '正常', warning: '预警', critical: '严重预警' }[r.level] || r.level;
       const msg = document.getElementById('message');
       msg.style.display = 'block';
-      msg.textContent = '提示：' + r.message + '（失效阈值 ' + r.threshold_mm + 'mm，失效周期 ' + r.failure_cycle + '）';
+      // 醒目呈现可执行检修建议（业务闭环：预警 → 运维决策），下方给出判定依据
+      msg.innerHTML =
+        '<div style="font-size:14px;"><b>检修建议：</b>' + r.advice + '</div>' +
+        '<div style="margin-top:6px;color:#94a3b8;font-size:12.5px;">判定依据：预测磨损 ' +
+        r.pred_wear_mm.toFixed(4) + ' mm，剩余寿命 ' + r.rul + ' 周期' +
+        '（失效阈值 ' + r.threshold_mm + 'mm，失效周期 ' + r.failure_cycle + '）</div>';
       loadPredictions(); loadAlerts();
     }
 
