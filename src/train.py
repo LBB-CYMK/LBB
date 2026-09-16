@@ -221,6 +221,11 @@ def main():
 
     report = {
         "search_grid": SEARCH_GRID,
+        # 保留每一组候选配置的验证集误差，便于复核「最优」是如何选出来的
+        "search_results": [
+            {"hidden_size": c["hidden_size"], "lr": c["lr"], "val_mse": v}
+            for c, v, _ in results
+        ],
         "best_config": best_cfg,
         "best_val_mse": best_val,
         "final_test_metrics": test_metrics,
